@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>말 달리자 (Horse Run)</title>
+  <script type="module" crossorigin src="/assets/index-uPVjydvY.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-rM-PT4FL.css">
+</head>
+
+<body>
+  <div id="app">
+    <header>
+      <h1>말 달리자</h1>
+      <div class="status-bar" id="status-bar">플레이어 1의 턴입니다</div>
+    </header>
+    <main>
+      <div id="game-board" class="board"></div>
+    </main>
+    <aside class="controls">
+      <div class="difficulty-selector">
+        <label for="difficulty">AI 난이도:</label>
+        <select id="difficulty">
+          <option value="2">초보 (2수 예측)</option>
+          <option value="3" selected>일반 (3수 예측)</option>
+          <option value="4">고수 (4수 예측)</option>
+          <option value="5">마스터 (5수 예측)</option>
+        </select>
+      </div>
+      <button id="reset-btn">게임 재시작</button>
+    </aside>
+  </div>
+</body>
+
+</html>

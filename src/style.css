@@ -1,0 +1,258 @@
+:root {
+  --bg-color: #1a1a2e;
+  --board-bg: #e6c280;
+  /* Desert color */
+  --desert-color: #f4d03f;
+  --meadow-color: #58d68d;
+  --oasis-color: #3498db;
+  --grid-line: #b08d57;
+  --player1-color: #e74c3c;
+  --player2-color: #9b59b6;
+  --text-color: #ecf0f1;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+  max-width: 600px;
+  padding: 10px;
+}
+
+header {
+  text-align: center;
+}
+
+h1 {
+  font-size: 2.5rem;
+  margin-bottom: 10px;
+  background: linear-gradient(45deg, #f1c40f, #e67e22);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+main {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.status-bar {
+  font-size: 1.2rem;
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  backdrop-filter: blur(4px);
+}
+
+.board {
+  display: grid;
+  /* 11 columns, each taking an equal fraction, max width of the board is limited by container */
+  grid-template-columns: repeat(11, 1fr);
+  grid-template-rows: repeat(11, 1fr);
+  gap: 2px;
+  width: 100%;
+  max-width: 100%;
+  /* controlled by #app */
+  aspect-ratio: 1;
+  /* Keep it square */
+  background-color: var(--grid-line);
+  padding: 4px;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  position: relative;
+}
+
+.cell {
+  width: 100%;
+  height: 100%;
+  background-color: var(--desert-color);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.2s, background-color 0.2s;
+}
+
+.cell:hover {
+  filter: brightness(1.1);
+}
+
+.cell.meadow {
+  background-color: var(--meadow-color);
+}
+
+.cell.oasis {
+  background-color: var(--oasis-color);
+}
+
+.piece {
+  /* Size relative to the cell, keeping it slightly smaller than the cell */
+  width: calc(100% / 11 - 4px);
+  height: calc(100% / 11 - 4px);
+  border-radius: 50%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  transition: top 0.4s ease-in-out, left 0.4s ease-in-out, transform 0.2s, box-shadow 0.2s;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.piece.player1 {
+  background: radial-gradient(circle at 30% 30%, #ff7675, var(--player1-color));
+  border: 2px solid #c0392b;
+}
+
+.piece.player2 {
+  background: radial-gradient(circle at 30% 30%, #a29bfe, var(--player2-color));
+  border: 2px solid #8e44ad;
+}
+
+.piece.selected {
+  transform: scale(1.1);
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.8);
+  border-color: white;
+}
+
+.cell.highlight-slide::after,
+.cell.highlight-lshape::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  opacity: 0.7;
+}
+
+.cell.highlight-slide::after {
+  background-color: rgba(46, 204, 113, 0.8);
+}
+
+.cell.highlight-lshape::after {
+  background-color: rgba(241, 196, 15, 0.8);
+}
+
+.controls button {
+  padding: 10px 20px;
+  font-size: 1rem;
+  background-color: #2980b9;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.controls button:hover {
+  background-color: #3498db;
+}
+
+.difficulty-selector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 8px 15px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.difficulty-selector label {
+  font-size: 0.9rem;
+  color: var(--text-color);
+  font-weight: 500;
+}
+
+#difficulty {
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  background-color: #2c3e50;
+  color: white;
+  border: 1px solid #34495e;
+  border-radius: 5px;
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+#difficulty:hover,
+#difficulty:focus {
+  border-color: #3498db;
+  box-shadow: 0 0 5px rgba(52, 152, 219, 0.5);
+}
+
+#difficulty option {
+  background-color: #2c3e50;
+  color: white;
+}
+
+/* 복기 기능 UI */
+#replay-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 10px;
+}
+
+#replay-controls.hidden {
+  display: none;
+}
+
+#replay-controls button {
+  padding: 8px 15px;
+  font-size: 1rem;
+  background-color: #2c3e50;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+#replay-controls button:hover {
+  background-color: #34495e;
+}
+
+#exit-replay-btn {
+  background-color: #e74c3c !important;
+}
+
+#exit-replay-btn:hover {
+  background-color: #c0392b !important;
+}
+
+#replay-status {
+  font-weight: bold;
+  font-size: 1.1rem;
+  min-width: 60px;
+  text-align: center;
+  color: #f1c40f;
+}
