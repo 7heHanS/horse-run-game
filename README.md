@@ -1,5 +1,7 @@
 # 🐎 말 달리자 (Horse Run)
 
+[![Play Now](https://img.shields.io/badge/Play_Now-Live_Server-success?style=for-the-badge&logo=googlechrome)](http://193.122.112.10:8080)
+
 사막 한가운데서 오아시스를 다투는 2인 전략 보드게임 웹 버전 구현체입니다.
 
 ## 🌟 주요 기능 (Features)
