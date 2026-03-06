@@ -7,10 +7,13 @@
 import { BOARD_SIZE, OASIS_POS, MEADOW_POSITIONS } from './constants.js';
 import { getValidSlideMoves, getValidLShapeMoves, checkWinCondition } from './engine.js';
 
-// 평가 함수 가중치
+// 평가 함수 가중치 (세분화)
 const WEIGHTS = {
-    WIN: 10000,
-    MEADOW: 100,
+    WIN: 100000,
+    MEADOW: 500,        // 초원 점유 (스토퍼)
+    SETUP_THREAT: 1500, // 승리 직전 셋업 (초원 점유 + 같은 라인에 발사대 대기)
+    BLOCKING: 1000,     // 상대방의 셋업 라인에 내 말을 올려두어 견제
+    CENTER_CONTROL: 10, // 보드 중앙(오아시스 주변) 접근성 (초반 전개용)
     MOBILITY: 1
 };
 
@@ -147,17 +150,75 @@ function simulateMove(board, pieces, move) {
 function evaluateBoard(board, pieces, aiPlayer, humanPlayer) {
     let score = 0;
 
-    // 1. 초원(Meadow) 점유 점수
+    // 1. 중앙 장악력 (Center Control) - 초반 수 연구 피드백 반영
+    // 구석에 짱박혀 있지 않고 중앙으로 빨리 전개하도록 유도
+    for (const p of pieces) {
+        // 오아시스(5,5)와의 맨해튼 거리 계산
+        const distToCenter = Math.abs(p.x - 5) + Math.abs(p.y - 5);
+        // 거리가 가까울수록 가점 (최대 거리 10)
+        const centerScore = (10 - distToCenter) * WEIGHTS.CENTER_CONTROL;
+
+        if (p.player === aiPlayer) score += centerScore;
+        else if (p.player === humanPlayer) score -= centerScore;
+    }
+
+    // 2. 초원(Meadow) 점유 및 셋업/견제(Block) 평가
     for (const m of MEADOW_POSITIONS) {
-        const piece = board[m.y][m.x];
-        if (piece) {
-            if (piece.player === aiPlayer) score += WEIGHTS.MEADOW;
-            else if (piece.player === humanPlayer) score -= WEIGHTS.MEADOW;
+        const stopperPiece = board[m.y][m.x];
+
+        if (stopperPiece) {
+            const owner = stopperPiece.player;
+            const opponent = (owner === aiPlayer) ? humanPlayer : aiPlayer;
+            const sign = (owner === aiPlayer) ? 1 : -1;
+
+            // 초원 기본 점수
+            score += WEIGHTS.MEADOW * sign;
+
+            // 3. 발사대(Launcher) 및 견제(Block) 확인
+            // 초원이 오아시스의 가로축인지 세로축인지 판단
+            const isHorizontal = (m.y === 5); // e6(4,5), f7(6,5) 인 경우 y축이 같으므로 x축(가로) 라인 검사
+            const isVertical = (m.x === 5);   // f5(5,4), g6(5,6) 인 경우 x축이 같으므로 y축(세로) 라인 검사
+
+            let ownerLaunchers = 0;
+            let opponentBlockers = 0;
+
+            if (isHorizontal) {
+                // 같은 행(가로)에 있는 말들 검사
+                for (let x = 0; x < BOARD_SIZE; x++) {
+                    if (x === m.x || x === 5) continue; // 스토퍼 자신과 오아시스 칸 제외
+                    const p = board[m.y][x];
+                    if (p) {
+                        if (p.player === owner) ownerLaunchers++;
+                        if (p.player === opponent) opponentBlockers++;
+                    }
+                }
+            } else if (isVertical) {
+                // 같은 열(세로)에 있는 말들 검사
+                for (let y = 0; y < BOARD_SIZE; y++) {
+                    if (y === m.y || y === 5) continue;
+                    const p = board[y][m.x];
+                    if (p) {
+                        if (p.player === owner) ownerLaunchers++;
+                        if (p.player === opponent) opponentBlockers++;
+                    }
+                }
+            }
+
+            // 점수 정산
+            if (ownerLaunchers > 0) {
+                if (opponentBlockers === 0) {
+                    // 방해물 없이 완벽한 셋업이 된 상태 (엄청난 위협)
+                    score += WEIGHTS.SETUP_THREAT * sign;
+                } else {
+                    // 셋업을 시도했으나 상대방이 견제(Block) 중인 상태
+                    // 방어자에게 블로킹 점수 부여 (sign을 반대로 적용)
+                    score += WEIGHTS.BLOCKING * (-sign);
+                }
+            }
         }
     }
 
-    // 2. 이동 가능 횟수 점수 (Mobility)
-    // 연산량이 늘어나므로 깊이가 깊어지면 생략하거나 최적화 가능
+    // 4. 기동성 (Mobility)
     const aiMoves = getAllPossibleMoves(board, aiPlayer).length;
     const humanMoves = getAllPossibleMoves(board, humanPlayer).length;
     score += (aiMoves - humanMoves) * WEIGHTS.MOBILITY;
