@@ -36,8 +36,8 @@ function findBestMove(board, pieces, aiPlayer, humanPlayer, depth) {
 
     const possibleMoves = getAllPossibleMoves(board, aiPlayer);
 
-    // 무작위성을 약간 섞어 매번 똑같은 플레이를 하지 않도록 함
-    possibleMoves.sort(() => Math.random() - 0.5);
+    // 알파-베타 가지치기 효율을 100% 발휘하기 위해 무작위 셔플을 제거합니다.
+    // (대신 getAllPossibleMoves 내부에서 오아시스에 가까운 유리한 수부터 탐색하도록 정렬됨)
 
     for (const move of possibleMoves) {
         // 보드 상태 복제 및 시뮬레이션
@@ -123,24 +123,37 @@ function getAllPossibleMoves(board, player) {
             }
         }
     }
+
+    // 알파-베타 가지치기 효율 극대화를 위한 Move Ordering (중앙/오아시스에 가까운 수부터 우선 정렬)
+    // 좋은 수를 먼저 찾아내면 나머지 수만 개 트리를 통째로 생략(Pruning)할 수 있습니다.
+    moves.sort((a, b) => {
+        const distA = Math.abs(a.targetX - 5) + Math.abs(a.targetY - 5);
+        const distB = Math.abs(b.targetX - 5) + Math.abs(b.targetY - 5);
+        return distA - distB;
+    });
+
     return moves;
 }
 
 function simulateMove(board, pieces, move) {
-    // 깊은 복사를 위해 간단히 JSON 사용 (성능 중요시 최적화 필요)
-    const nextBoard = board.map(row => [...row]);
-    const nextPieces = JSON.parse(JSON.stringify(pieces));
+    // 얕은 복사를 이용한 최적화 (JSON.parse(stringify)로 인한 성능 하락(수십 배) 방지)
+    const nextBoard = [...board];
+    // 변경되는 행(Row)만 새로운 배열로 복사하여 참조 끊기
+    nextBoard[move.pieceY] = [...board[move.pieceY]];
+    if (move.pieceY !== move.targetY) {
+        nextBoard[move.targetY] = [...board[move.targetY]];
+    }
 
-    const piece = nextBoard[move.pieceY][move.pieceX];
+    // pieces 배열도 통째 복사 대신, 변경되는 말 1개만 구조 분해 할당으로 교체
+    const nextPieces = pieces.map(p =>
+        (p.x === move.pieceX && p.y === move.pieceY)
+            ? { ...p, x: move.targetX, y: move.targetY }
+            : p
+    );
 
-    // 이전 위치 비우기
     nextBoard[move.pieceY][move.pieceX] = null;
-
-    // 새 위치 적용
-    const movedPiece = nextPieces.find(p => p.x === move.pieceX && p.y === move.pieceY);
+    const movedPiece = nextPieces.find(p => p.x === move.targetX && p.y === move.targetY);
     if (movedPiece) {
-        movedPiece.x = move.targetX;
-        movedPiece.y = move.targetY;
         nextBoard[move.targetY][move.targetX] = movedPiece;
     }
 
@@ -218,10 +231,8 @@ function evaluateBoard(board, pieces, aiPlayer, humanPlayer) {
         }
     }
 
-    // 4. 기동성 (Mobility)
-    const aiMoves = getAllPossibleMoves(board, aiPlayer).length;
-    const humanMoves = getAllPossibleMoves(board, humanPlayer).length;
-    score += (aiMoves - humanMoves) * WEIGHTS.MOBILITY;
+    // 4. 기동성 (Mobility) 검사는 트리 말단(Leaf Node) 수백만 개에서 getAllPossibleMoves를 
+    // 반복 호출하게 만들어 최악의 병목(Lag)을 유발하므로 속도를 위해 제거됨.
 
     return score;
 }
