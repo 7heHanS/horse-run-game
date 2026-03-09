@@ -151,7 +151,7 @@ main {
 }
 
 .cell.highlight-lshape::after {
-  background-color: rgba(241, 196, 15, 0.8);
+  background-color: rgba(230, 126, 34, 0.9);
 }
 
 .controls button {
