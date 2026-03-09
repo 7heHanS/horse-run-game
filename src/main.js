@@ -301,7 +301,7 @@ class HorseRunGame {
 
             // Use Oracle Cloud server IP in production (GitHub Pages), otherwise use localhost for development
             const baseUrl = import.meta.env.PROD 
-                ? 'http://193.122.112.10:8080' 
+                ? 'https://7hehans.duckdns.org' 
                 : 'http://localhost:8001';
                 
             const apiUrl = `${baseUrl}/api/move`; 
