@@ -1,8 +1,7 @@
 
-
 services:
-  run-horses:
-    build: .
+  run-horses-backend:
+    build: ./backend
     ports:
-      - "8080:80"
+      - "8080:8001"
     restart: always
