@@ -18,16 +18,22 @@
       <div id="game-board" class="board"></div>
     </main>
     <aside class="controls">
-      <div class="difficulty-selector">
-        <label for="difficulty">AI 난이도:</label>
-        <select id="difficulty">
-          <option value="2">초보 (2수 예측)</option>
-          <option value="3" selected>일반 (3수 예측)</option>
-          <option value="4">고수 (4수 예측)</option>
-          <option value="5">마스터 (5수 예측)</option>
-        </select>
-      </div>
-      <button id="reset-btn">게임 재시작</button>
+            <div class="control-group">
+                <label for="difficulty">AI 난이도:</label>
+                <select id="difficulty">
+                    <option value="1">하 (탐색 깊이 1)</option>
+                    <option value="2">중 (탐색 깊이 2)</option>
+                    <option value="3" selected>상 (탐색 깊이 3)</option>
+                    <option value="4">최상 (탐색 깊이 4)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="use-ml">
+                    <input type="checkbox" id="use-ml" />
+                    딥러닝 AI 사용 (PyTorch)
+                </label>
+            </div>
+            <button id="reset-btn">게임 재시작</button>
     </aside>
 
     <div id="replay-controls" class="hidden">

@@ -20,9 +20,6 @@ class HorseRunGame {
         this.isReplayMode = false;
         this.currentReplayStep = 0;
 
-        this.aiWorker = new Worker(new URL('./ai-worker.js', import.meta.url), { type: 'module' });
-        this.aiWorker.onmessage = this.handleAIResponse.bind(this);
-
         this.init();
     }
 
@@ -274,7 +271,7 @@ class HorseRunGame {
         this.resetGame();
     }
 
-    switchTurn() {
+    async switchTurn() {
         this.currentPlayer = this.currentPlayer === 1 ? 2 : 1;
         this.updateStatus();
 
@@ -282,33 +279,69 @@ class HorseRunGame {
             this.isAITurn = true;
             this.statusBar.textContent = 'AI가 생각 중입니다...';
 
-            // HTML UI에서 선택된 난이도(깊이) 가져오기
             const difficultySelect = document.getElementById('difficulty');
             const selectedDepth = parseInt(difficultySelect.value, 10);
+            
+            const useMLCheckbox = document.getElementById('use-ml');
+            const selectedUseML = useMLCheckbox ? useMLCheckbox.checked : false;
 
-            this.aiWorker.postMessage({
-                boardInfo: this.boardInfo,
-                pieces: this.pieces,
-                currentPlayer: 2,
-                depth: selectedDepth // 동적으로 할당된 난이도
-            });
+            const move = await this.fetchAIMove(this.boardInfo, 2, selectedDepth, selectedUseML);
+            
+            this.handleAIResponse(move);
         } else {
             this.isAITurn = false;
         }
     }
 
-    handleAIResponse(e) {
-        if (e.data.type === 'MOVE_CALCULATED') {
-            const move = e.data.move;
-            if (move) {
-                const targetPiece = this.boardInfo[move.pieceY][move.pieceX];
-                setTimeout(() => {
-                    this.movePiece(targetPiece, move.targetX, move.targetY);
-                }, 500);
-            } else {
-                this.statusBar.textContent = 'AI가 이동할 수 없습니다.';
-                this.isGameOver = true;
-            }
+    async fetchAIMove(boardInfo, currentPlayer, depth, useML) {
+        try {
+            const simpleBoard = boardInfo.map(row => 
+                row.map(cell => cell ? cell.player : 0)
+            );
+
+            // Use Oracle Cloud server IP in production (GitHub Pages), otherwise use localhost for development
+            const baseUrl = import.meta.env.PROD 
+                ? 'http://193.122.112.10:8080' 
+                : 'http://localhost:8001';
+                
+            const apiUrl = `${baseUrl}/api/move`; 
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    board: simpleBoard,
+                    current_turn: currentPlayer,
+                    difficulty: depth,
+                    use_ml: useML
+                })
+            });
+
+            if (!response.ok) throw new Error('Network error');
+
+            const move = await response.json();
+            
+            return {
+                pieceX: move.from_c,
+                pieceY: move.from_r,
+                targetX: move.to_c,
+                targetY: move.to_r
+            };
+        } catch (error) {
+            console.error('Error fetching AI move:', error);
+            return null;
+        }
+    }
+
+    handleAIResponse(move) {
+        if (move) {
+            const targetPiece = this.boardInfo[move.pieceY][move.pieceX];
+            setTimeout(() => {
+                this.movePiece(targetPiece, move.targetX, move.targetY);
+            }, 500);
+        } else {
+            this.statusBar.textContent = 'AI가 이동할 수 없습니다.';
+            this.isGameOver = true;
         }
     }
 
