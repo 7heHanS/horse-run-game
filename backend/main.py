@@ -46,7 +46,7 @@ def get_next_move(request: MoveRequest):
         depth, 
         use_ml=request.use_ml,
         use_mcts=request.use_ml,
-        mcts_simulations=3000
+        mcts_simulations=500
     )
     
     if best_move is None:
