@@ -1,22 +1,6 @@
 services:
   run-horses-backend:
     build: ./backend
-    restart: always
-
-  # HTTPS를 자동 적용해주는 Caddy 프록시 서버
-  caddy:
-    image: caddy:latest
-    restart: always
     ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - run-horses-backend
-
-volumes:
-  caddy_data:
-  caddy_config:
+      - "8001:8001"
+    restart: always
