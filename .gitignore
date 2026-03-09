@@ -3,3 +3,7 @@ dist
 .env
 .DS_Store
 *.tar
+
+# Configuration & Sensitive Files
+horse-run-game.conf
+backend/dataset.json

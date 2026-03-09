@@ -1,5 +1,0 @@
-7hehans.duckdns.org {
-    handle_path /* {
-        reverse_proxy run-horses-backend:8001
-    }
-}
