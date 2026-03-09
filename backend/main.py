@@ -39,7 +39,15 @@ def get_next_move(request: MoveRequest):
     # Calculate best move with depth = difficulty + 1 (arbitrary scaling)
     depth = request.difficulty
     
-    best_move = find_best_move(request.board, ai_player, human_player, depth, use_ml=request.use_ml)
+    best_move = find_best_move(
+        request.board, 
+        ai_player, 
+        human_player, 
+        depth, 
+        use_ml=request.use_ml,
+        use_mcts=request.use_ml,
+        mcts_simulations=300
+    )
     
     if best_move is None:
         raise HTTPException(status_code=400, detail="No possible moves found")

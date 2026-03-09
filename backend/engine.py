@@ -9,6 +9,24 @@ MEADOW_POSITIONS = [
     {"x": 4, "y": 4}, {"x": 6, "y": 4}, {"x": 4, "y": 6}, {"x": 6, "y": 6}
 ]
 
+INITIAL_POSITIONS_P1 = [
+    {"x": 10, "y": 8}, {"x": 10, "y": 9}, {"x": 10, "y": 10}, {"x": 9, "y": 10}, {"x": 8, "y": 10},
+    {"x": 0, "y": 0}, {"x": 1, "y": 0}, {"x": 2, "y": 0}, {"x": 0, "y": 1}, {"x": 0, "y": 2}
+]
+
+INITIAL_POSITIONS_P2 = [
+    {"x": 0, "y": 8}, {"x": 0, "y": 9}, {"x": 0, "y": 10}, {"x": 1, "y": 10}, {"x": 2, "y": 10},
+    {"x": 10, "y": 0}, {"x": 9, "y": 0}, {"x": 8, "y": 0}, {"x": 10, "y": 1}, {"x": 10, "y": 2}
+]
+
+def create_initial_board():
+    board = [[0 for _ in range(BOARD_SIZE)] for _ in range(BOARD_SIZE)]
+    for pos in INITIAL_POSITIONS_P1:
+        board[pos["y"]][pos["x"]] = 1
+    for pos in INITIAL_POSITIONS_P2:
+        board[pos["y"]][pos["x"]] = 2
+    return board
+
 def is_desert_space(x: int, y: int) -> bool:
     if x < 0 or x >= BOARD_SIZE or y < 0 or y >= BOARD_SIZE:
         return False
