@@ -194,7 +194,6 @@ class HorseRunGame {
         // 보드 정보 업데이트
         this.boardInfo[piece.y][piece.x] = null;
         piece.x = targetX;
-        piece.x = targetX;
         piece.y = targetY;
         this.boardInfo[targetY][targetX] = piece;
 
