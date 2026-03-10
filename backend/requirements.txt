@@ -1,0 +1,5 @@
+fastapi
+uvicorn
+pydantic
+numpy
+torch # for legacy support if needed (though browser is ONNX)
