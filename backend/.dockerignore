@@ -1,0 +1,15 @@
+*.pt
+*.json
+*.jsonl
+__pycache__/
+venv/
+backup_models/
+*.onnx
+*.onnx.data
+*.pyc
+*.pyo
+dist/
+build/
+.git
+.gitignore
+uvicorn.log
