@@ -40,51 +40,177 @@ WEIGHTS = {
 _cached_model = None
 _cached_model_path = None
 
-def get_ml_best_move(board: list[list[int]], current_player: int, model_path="model_v4.pt", use_mcts=False, mcts_simulations=100):
-    """
-    Predicts the best move using the trained neural network model.
-    Supports V3 (CNN, from-to) and legacy V2/V1 (MLP, to-only).
-    """
-    global _cached_model, _cached_model_path
+def get_all_possible_moves(board: list[list[int]], player: int):
+    """Enumerate all legal moves for a player. Used by ML inference pipeline."""
+    moves = []
+    for y in range(BOARD_SIZE):
+        for x in range(BOARD_SIZE):
+            if board[y][x] == player:
+                slide_moves = get_valid_slide_moves(board, x, y)
+                l_shape_moves = get_valid_l_shape_moves(board, x, y)
+                
+                for m in slide_moves + l_shape_moves:
+                    moves.append({
+                        "pieceX": x, "pieceY": y,
+                        "targetX": m["x"], "targetY": m["y"],
+                        "type": m["type"], "player": player
+                    })
+    # Sort moves by distance to oasis (center)
+    moves.sort(key=lambda m: abs(m["targetX"] - 5) + abs(m["targetY"] - 5))
+    return moves
 
+def simulate_move(board: list[list[int]], move: dict) -> list[list[int]]:
+    """Apply a move to a board and return the new board state."""
+    new_board = [row[:] for row in board]
+    player = new_board[move["pieceY"]][move["pieceX"]]
+    new_board[move["pieceY"]][move["pieceX"]] = 0
+    new_board[move["targetY"]][move["targetX"]] = player
+    return new_board
+
+def evaluate_board(board: list[list[int]], ai_player: int, human_player: int) -> float:
+    """Heuristic board evaluation for MCTS leaf nodes."""
+    score = 0.0
+    
+    # 1. Coordinate-based scores & Stopper detection
+    for y in range(BOARD_SIZE):
+        for x in range(BOARD_SIZE):
+            p = board[y][x]
+            if p == 0: continue
+            
+            dist = abs(x - 5) + abs(y - 5)
+            # Base center control score
+            center_score = (10 - dist) * WEIGHTS["CENTER_CONTROL"]
+            
+            # Proximity threat: extra weights for being very close to winning
+            threat_score = 0
+            if dist <= 8:
+                threat_score = (10 - dist) * 2000  # Massive progressive penalty
+
+            if p == ai_player:
+                score += (center_score + threat_score)
+            elif p == human_player:
+                score -= (center_score + threat_score)
+
+    # 2. Axis Patrol & Stopper Detection
+    stoppers = [
+        (6, 5, "L"), (4, 5, "R"), (5, 6, "T"), (5, 4, "B")
+    ]
+    
+    # Axis counts for cluster detection
+    ai_on_x5, human_on_x5 = 0, 0
+    ai_on_y5, human_on_y5 = 0, 0
+    
+    for i in range(BOARD_SIZE):
+        if board[5][i] == ai_player: ai_on_x5 += 1
+        elif board[5][i] == human_player: human_on_x5 += 1
+        
+        if board[i][5] == ai_player: ai_on_y5 += 1
+        elif board[i][5] == human_player: human_on_y5 += 1
+
+    # Axis Patrol Reward: AI pieces on x=5 or y=5 are good defenders
+    score += (ai_on_x5 + ai_on_y5) * 2000
+    score -= (human_on_x5 + human_on_y5) * 3000 # Opponent on axis is VERY bad
+
+    # Cluster Penalty: If opponent has >1 piece on an axis, it's a huge setup threat
+    if human_on_x5 > 1: score -= 10000
+    if human_on_y5 > 1: score -= 10000
+
+    for sx, sy, side in stoppers:
+        # Check for pieces at stopper positions (SX, SY)
+        p_at_stopper = board[sy][sx]
+        
+        for player in [1, 2]:
+            is_imminent = False
+            is_blocked_threat = False
+            
+            # Check for pieces that could slide into (5,5)
+            if side == "L": # Slide RIGHT to (5,5), blocked by (6,5)
+                sources = [x for x in range(5) if board[5][x] == player]
+                for x in sources:
+                    if all(board[5][i] == 0 for i in range(x+1, 5)):
+                        is_imminent = True; break
+                    else: is_blocked_threat = True
+            elif side == "R": # Slide LEFT to (5,5), blocked by (4,5)
+                sources = [x for x in range(6, 11) if board[5][x] == player]
+                for x in sources:
+                    if all(board[5][i] == 0 for i in range(5+1, x)):
+                        is_imminent = True; break
+                    else: is_blocked_threat = True
+            elif side == "T": # Slide DOWN to (5,5), blocked by (5,6)
+                sources = [y for y in range(5) if board[y][5] == player]
+                for y in sources:
+                    if all(board[i][5] == 0 for i in range(y+1, 5)):
+                        is_imminent = True; break
+                    else: is_blocked_threat = True
+            elif side == "B": # Slide UP to (5,5), blocked by (5,4)
+                sources = [y for y in range(6, 11) if board[y][5] == player]
+                for y in sources:
+                    if all(board[i][5] == 0 for i in range(5+1, y)):
+                        is_imminent = True; break
+                    else: is_blocked_threat = True
+            
+            if is_imminent and p_at_stopper != 0:
+                threat_level = 50000 
+            elif is_imminent and p_at_stopper == 0:
+                threat_level = 15000 # Increased from 10k
+            elif is_blocked_threat and p_at_stopper != 0:
+                threat_level = 8000  # Increased from 5k
+            else:
+                threat_level = 0
+                
+            if player == ai_player: score += threat_level
+            else: score -= threat_level
+
+    # 3. Mobility
+    ai_moves = len(get_all_possible_moves(board, ai_player))
+    human_moves = len(get_all_possible_moves(board, human_player))
+    score += (ai_moves - human_moves) * WEIGHTS["MOBILITY"]
+    return score
+
+def get_model():
+    """Loads and caches the ML model."""
+    global _cached_model, _cached_model_path
+    
+    model_path = "model_v6.pt"
+    
     if not os.path.exists(model_path):
-        # Try legacy model path
-        if os.path.exists("model.pt"):
-            model_path = "model.pt"
-        else:
-            return None
+        return None, None
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # Load model (with caching)
     if _cached_model is None or _cached_model_path != model_path:
-        if ML_VERSION == 4 and "v4" in model_path:
+        if ML_VERSION == 4 and ("v4" in model_path or "v5" in model_path or "v6" in model_path):
             model = PolicyNetV4().to(device)
         elif ML_VERSION == 3 and "v3" in model_path:
             model = HorseRunPolicyNetV3().to(device)
         elif ML_VERSION >= 2:
             model = AIPolicyNet().to(device)
         else:
-            return None
+            return None, None
         model.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
         model.eval()
         _cached_model = model
         _cached_model_path = model_path
     else:
         model = _cached_model
+        
+    return model, device
+
+def get_ml_best_move(board: list[list[int]], current_player: int):
+    """
+    Predicts the best move using the trained neural network model (V5/V4).
+    """
+    model, device = get_model()
+    if model is None:
+        return None
 
     possible_moves = get_all_possible_moves(board, current_player)
     if not possible_moves:
         return None
 
-    # V4 MCTS Integration
-    if use_mcts and ML_VERSION == 4 and "v4" in model_path:
-        from mcts import MCTS
-        mcts_engine = MCTS(model, device, num_simulations=mcts_simulations)
-        return mcts_engine.search(board, current_player)
-
     # V4: Multi-Head CNN (From/To) + Legal Move Masking (Greedy)
-    if ML_VERSION == 4 and "v4" in model_path:
+    if ML_VERSION == 4:
         channels = board_to_channels(board, current_player).unsqueeze(0).to(device)
         
         # Get just the from_mask for inference
@@ -117,7 +243,7 @@ def get_ml_best_move(board: list[list[int]], current_player: int, model_path="mo
         return best_move
 
     # V3: CNN with from-to action space + Legal Move Masking
-    if ML_VERSION == 3 and "v3" in model_path:
+    if ML_VERSION == 3:
         channels = board_to_channels(board, current_player).unsqueeze(0).to(device)
 
         # Generate legal move mask
@@ -167,151 +293,17 @@ def get_ml_best_move(board: list[list[int]], current_player: int, model_path="mo
 
         return best_move
 
-
-def find_best_move(board: list[list[int]], ai_player: int, human_player: int, depth: int, use_ml=False, use_mcts=False, mcts_simulations=100):
-    if use_ml:
-        ml_move = get_ml_best_move(board, ai_player, use_mcts=use_mcts, mcts_simulations=mcts_simulations)
-        if ml_move:
-           return ml_move
-        print("ML Model not found or failed, falling back to Minimax.")
-        
-    best_score = -float('inf')
-    best_move = None
-    
-    possible_moves = get_all_possible_moves(board, ai_player)
-    
-    for move in possible_moves:
-        next_board = simulate_move(board, move)
-        if check_win_condition(move["targetX"], move["targetY"]):
-            return move
-            
-        score = minimax(next_board, depth - 1, -float('inf'), float('inf'), False, ai_player, human_player)
-        
-        if score > best_score:
-            best_score = score
-            best_move = move
-            
-    return best_move
-
-def minimax(board: list[list[int]], depth: int, alpha: float, beta: float, is_maximizing: bool, ai_player: int, human_player: int):
-    if depth == 0:
-        return evaluate_board(board, ai_player, human_player)
-        
-    current_player = ai_player if is_maximizing else human_player
-    possible_moves = get_all_possible_moves(board, current_player)
-    
-    if len(possible_moves) == 0:
-        return evaluate_board(board, ai_player, human_player)
-        
-    if is_maximizing:
-        max_eval = -float('inf')
-        for move in possible_moves:
-            next_board = simulate_move(board, move)
-            if check_win_condition(move["targetX"], move["targetY"]):
-                return WEIGHTS["WIN"] + depth
-                
-            eval_score = minimax(next_board, depth - 1, alpha, beta, False, ai_player, human_player)
-            max_eval = max(max_eval, eval_score)
-            alpha = max(alpha, eval_score)
-            if beta <= alpha:
-                break
-        return max_eval
+def find_best_move(board: list[list[int]], ai_player: int, human_player: int, depth: int, use_ml=True, use_mcts=False, mcts_simulations=100):
+    """
+    Since Phase 13, the backend only serves Deep Learning (V5) predictions. 
+    Minimax is handled client-side in JS.
+    """
+    if use_mcts:
+        from mcts import MCTS
+        model, device = get_model()
+        if model is None:
+            return get_ml_best_move(board, ai_player)
+        mcts = MCTS(model=model, device=device, num_simulations=mcts_simulations)
+        return mcts.search(board, ai_player)
     else:
-        min_eval = float('inf')
-        for move in possible_moves:
-            next_board = simulate_move(board, move)
-            if check_win_condition(move["targetX"], move["targetY"]):
-                return -WEIGHTS["WIN"] - depth
-                
-            eval_score = minimax(next_board, depth - 1, alpha, beta, True, ai_player, human_player)
-            min_eval = min(min_eval, eval_score)
-            beta = min(beta, eval_score)
-            if beta <= alpha:
-                break
-        return min_eval
-
-def get_all_possible_moves(board: list[list[int]], player: int):
-    moves = []
-    for y in range(BOARD_SIZE):
-        for x in range(BOARD_SIZE):
-            if board[y][x] == player:
-                slide_moves = get_valid_slide_moves(board, x, y)
-                l_shape_moves = get_valid_l_shape_moves(board, x, y)
-                
-                for m in slide_moves + l_shape_moves:
-                    moves.append({
-                        "pieceX": x, "pieceY": y,
-                        "targetX": m["x"], "targetY": m["y"],
-                        "type": m["type"], "player": player
-                    })
-                    
-    # Sort moves by distance to oasis (center)
-    def dist_to_center(m):
-        return abs(m["targetX"] - 5) + abs(m["targetY"] - 5)
-        
-    moves.sort(key=dist_to_center)
-    return moves
-
-def simulate_move(board: list[list[int]], move: dict):
-    next_board = [row[:] for row in board]
-    player = next_board[move["pieceY"]][move["pieceX"]]
-    next_board[move["pieceY"]][move["pieceX"]] = 0
-    next_board[move["targetY"]][move["targetX"]] = player
-    return next_board
-
-def evaluate_board(board: list[list[int]], ai_player: int, human_player: int):
-    score = 0
-    
-    # 1. Center Control
-    for y in range(BOARD_SIZE):
-        for x in range(BOARD_SIZE):
-            p = board[y][x]
-            if p != 0:
-                dist_to_center = abs(x - 5) + abs(y - 5)
-                center_score = (10 - dist_to_center) * WEIGHTS["CENTER_CONTROL"]
-                if p == ai_player:
-                    score += center_score
-                elif p == human_player:
-                    score -= center_score
-                    
-    # 2. Meadow control and Setup
-    for m in MEADOW_POSITIONS:
-        stopper_piece = board[m["y"]][m["x"]]
-        if stopper_piece != 0:
-            owner = stopper_piece
-            opponent = human_player if owner == ai_player else ai_player
-            sign = 1 if owner == ai_player else -1
-            
-            score += WEIGHTS["MEADOW"] * sign
-            
-            # 3. Launchers / Blockers
-            is_horizontal = (m["y"] == 5)
-            is_vertical = (m["x"] == 5)
-            
-            owner_launchers = 0
-            opponent_blockers = 0
-            
-            if is_horizontal:
-                for x in range(BOARD_SIZE):
-                    if x == m["x"] or x == 5:
-                        continue
-                    p = board[m["y"]][x]
-                    if p != 0:
-                        if p == owner: owner_launchers += 1
-                        if p == opponent: opponent_blockers += 1
-            elif is_vertical:
-                for y in range(BOARD_SIZE):
-                    if y == m["y"] or y == 5:
-                        continue
-                    p = board[y][m["x"]]
-                    if p != 0:
-                        if p == owner: owner_launchers += 1
-                        if p == opponent: opponent_blockers += 1
-                        
-            if owner_launchers > 0:
-                if opponent_blockers == 0:
-                    score += WEIGHTS["SETUP_THREAT"] * sign
-                else:
-                    score += WEIGHTS["BLOCKING"] * (-sign)
-                    
-    return score
+        return get_ml_best_move(board, ai_player)

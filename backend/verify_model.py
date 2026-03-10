@@ -95,7 +95,7 @@ def get_ml_move_fast(model, board, current_player, device, model_class):
 def run_match(ml_model_path, minimax_depth=4, num_games=10, use_mcts=False, mcts_simulations=100):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    if MODEL_CLASS == "V4" and "v4" in ml_model_path:
+    if MODEL_CLASS == "V4" and ("v4" in ml_model_path or "v5" in ml_model_path):
         nn_model = PolicyNetV4().to(device)
         nn_model.load_state_dict(torch.load(ml_model_path, map_location=device, weights_only=True))
         nn_model.eval()

@@ -44,8 +44,8 @@ export function getValidSlideMoves(board, startX, startY) {
                 break;
             }
 
-            // 장애물 (다른 말) 체크
-            if (board[y][x] !== null) {
+            // 장애물 (다른 말) 체크 - null(UI) 또는 0(minimax) 모두 빈 칸으로 처리
+            if (board[y][x]) {
                 break;
             }
 
@@ -83,8 +83,8 @@ export function getValidLShapeMoves(board, startX, startY) {
         // 보드 경계 체크
         if (x < 0 || x >= BOARD_SIZE || y < 0 || y >= BOARD_SIZE) continue;
 
-        // 도착지가 비어있는지 체크
-        if (board[y][x] !== null) continue;
+        // 도착지가 비어있는지 체크 - null(UI) 또는 0(minimax) 모두 빈 칸으로 처리
+        if (board[y][x]) continue;
 
         // 도착지가 '사막'이어야 함
         if (isDesertSpace(x, y)) {

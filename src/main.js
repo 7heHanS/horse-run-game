@@ -15,10 +15,18 @@ class HorseRunGame {
         this.isGameOver = false;
         this.isAITurn = false;
 
+        // Game mode settings
+        this.gameMode = '1p';  // '1p' or '2p'
+        this.humanPlayer = 1;  // Which player the human controls (1=선공, 2=후공)
+        this.aiPlayer = 2;     // Which player the AI controls
+
         // 복기 기능 상태 변수
         this.moveHistory = [];
         this.isReplayMode = false;
         this.currentReplayStep = 0;
+
+        // 기보 로깅 (개별 수 기록)
+        this.gameLog = [];
 
         this.init();
     }
@@ -41,6 +49,26 @@ class HorseRunGame {
 
         this.resetBtn.addEventListener('click', () => {
             this.resetGame();
+        });
+
+        // Segmented button click handler (generic for all segment groups)
+        document.querySelectorAll('.segment-group').forEach(group => {
+            group.querySelectorAll('.seg-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // Update active state
+                    group.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    group.dataset.value = btn.dataset.val;
+
+                    // If game mode changed, toggle visibility of AI-only controls
+                    if (group.id === 'game-mode-group') {
+                        const is2P = btn.dataset.val === '2p';
+                        document.getElementById('turn-order-group').style.display = is2P ? 'none' : '';
+                        document.getElementById('difficulty-group').style.display = is2P ? 'none' : '';
+                        this.resetGame();
+                    }
+                });
+            });
         });
     }
 
@@ -191,11 +219,21 @@ class HorseRunGame {
     }
 
     movePiece(piece, targetX, targetY) {
+        const fromX = piece.x;
+        const fromY = piece.y;
+
         // 보드 정보 업데이트
         this.boardInfo[piece.y][piece.x] = null;
         piece.x = targetX;
         piece.y = targetY;
         this.boardInfo[targetY][targetX] = piece;
+
+        // 기보 로깅: 개별 수 기록
+        this.gameLog.push({
+            player: piece.player,
+            from: { x: fromX, y: fromY },
+            to: { x: targetX, y: targetY }
+        });
 
         // 이동 완료 후 상태 기록
         this.saveHistoryState();
@@ -218,6 +256,37 @@ class HorseRunGame {
         this.statusBar.style.color = '#f1c40f';
         this.validMoves = [];
         this.showReplayControls();
+
+        // 그랜드마스터(딥러닝) 대전에서 인간 승리 시 기보 서버 전송
+        if (this.gameMode === '1p' && player === this.humanPlayer) {
+            const diffGroup = document.getElementById('difficulty-seg');
+            const diff = diffGroup?.dataset.value;
+            if (diff === '6') {
+                this.uploadGameLog(player);
+            }
+        }
+    }
+
+    async uploadGameLog(winner) {
+        try {
+            const baseUrl = import.meta.env.PROD
+                ? 'https://7hehans.duckdns.org:8443'
+                : 'http://localhost:8001';
+
+            await fetch(`${baseUrl}/api/game-log`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    winner,
+                    total_moves: this.gameLog.length,
+                    moves: this.gameLog,
+                    timestamp: new Date().toISOString()
+                })
+            });
+            console.log('Game log uploaded successfully.');
+        } catch (err) {
+            console.warn('Game log upload failed (non-critical):', err.message);
+        }
     }
 
     showReplayControls() {
@@ -274,17 +343,24 @@ class HorseRunGame {
         this.currentPlayer = this.currentPlayer === 1 ? 2 : 1;
         this.updateStatus();
 
-        if (this.currentPlayer === 2) {
+        // 2인용 모드: AI 개입 없음
+        if (this.gameMode === '2p') {
+            this.isAITurn = false;
+            return;
+        }
+
+        // 1인용 모드: AI 턴인지 확인
+        if (this.currentPlayer === this.aiPlayer) {
             this.isAITurn = true;
             this.statusBar.textContent = 'AI가 생각 중입니다...';
 
-            const difficultySelect = document.getElementById('difficulty');
-            const selectedDepth = parseInt(difficultySelect.value, 10);
+            const difficultyGroup = document.getElementById('difficulty-seg');
+            const selectedDepth = parseInt(difficultyGroup?.dataset.value || '3', 10);
             
-            const useMLCheckbox = document.getElementById('use-ml');
-            const selectedUseML = useMLCheckbox ? useMLCheckbox.checked : false;
+            // value 6 = 그랜드 마스터 (딥러닝) → useML = true
+            const useML = (selectedDepth === 6);
 
-            const move = await this.fetchAIMove(this.boardInfo, 2, selectedDepth, selectedUseML);
+            const move = await this.fetchAIMove(this.boardInfo, this.aiPlayer, selectedDepth, useML);
             
             this.handleAIResponse(move);
         } else {
@@ -297,35 +373,35 @@ class HorseRunGame {
             const simpleBoard = boardInfo.map(row => 
                 row.map(cell => cell ? cell.player : 0)
             );
-
-            // Use Oracle Cloud server IP in production (GitHub Pages), otherwise use localhost for development
-            const baseUrl = import.meta.env.PROD 
-                ? 'https://7hehans.duckdns.org:8443' 
-                : 'http://localhost:8001';
-                
-            const apiUrl = `${baseUrl}/api/move`; 
-
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    board: simpleBoard,
-                    current_turn: currentPlayer,
-                    difficulty: depth,
-                    use_ml: useML
-                })
-            });
-
-            if (!response.ok) throw new Error('Network error');
-
-            const move = await response.json();
+            const humanPlayer = currentPlayer === 1 ? 2 : 1;
             
-            return {
-                pieceX: move.from_c,
-                pieceY: move.from_r,
-                targetX: move.to_c,
-                targetY: move.to_r
-            };
+            this.updateStatus("AI가 생각 중입니다... ⏳");
+            
+            const bestMove = await new Promise((resolve, reject) => {
+                const worker = new Worker(
+                    new URL('./minimax.worker.js', import.meta.url),
+                    { type: 'module' }
+                );
+                worker.onmessage = (e) => {
+                    resolve(e.data.bestMove);
+                    worker.terminate();
+                };
+                worker.onerror = (err) => {
+                    console.error("Worker error:", err);
+                    reject(err);
+                    worker.terminate();
+                };
+                // Send useMCTS flag for Grandmaster (Level 6)
+                worker.postMessage({ 
+                    board: simpleBoard, 
+                    aiPlayer: currentPlayer, 
+                    humanPlayer, 
+                    depth,
+                    useMCTS: (depth >= 6)
+                });
+            });
+            
+            return bestMove;
         } catch (error) {
             console.error('Error fetching AI move:', error);
             return null;
@@ -346,20 +422,55 @@ class HorseRunGame {
 
     resetGame() {
         this.hideReplayControls();
+        
+        // Read game mode settings from segment groups
+        const gameModeGroup = document.getElementById('game-mode-group');
+        this.gameMode = gameModeGroup?.dataset.value || '1p';
+        
+        const turnOrderGroup = document.getElementById('turn-order-seg');
+        const turnOrder = turnOrderGroup?.dataset.value || 'first';
+        
+        if (this.gameMode === '1p') {
+            this.humanPlayer = (turnOrder === 'first') ? 1 : 2;
+            this.aiPlayer = (turnOrder === 'first') ? 2 : 1;
+        }
+        
         this.initPieces();
         this.currentPlayer = 1;
         this.selectedPiece = null;
         this.validMoves = [];
         this.isGameOver = false;
         this.isAITurn = false;
+        this.gameLog = [];
         this.statusBar.style.color = '';
         this.renderPieces();
         this.renderHighlights();
         this.updateStatus();
+        
+        // If AI goes first (후공 선택 시), trigger AI move
+        if (this.gameMode === '1p' && this.aiPlayer === 1) {
+            this.isAITurn = true;
+            this.statusBar.textContent = 'AI가 생각 중입니다...';
+            
+            const difficultyGroup = document.getElementById('difficulty-seg');
+            const selectedDepth = parseInt(difficultyGroup?.dataset.value || '3', 10);
+            const useML = (selectedDepth === 6);
+            
+            this.fetchAIMove(this.boardInfo, this.aiPlayer, selectedDepth, useML)
+                .then(move => this.handleAIResponse(move));
+        }
     }
 
-    updateStatus() {
-        this.statusBar.textContent = `플레이어 ${this.currentPlayer}의 턴입니다`;
+    updateStatus(customMessage) {
+        if (customMessage) {
+            this.statusBar.textContent = customMessage;
+        } else if (this.gameMode === '2p') {
+            this.statusBar.textContent = `플레이어 ${this.currentPlayer}의 턴입니다`;
+        } else if (this.currentPlayer === this.humanPlayer) {
+            this.statusBar.textContent = '당신의 턴입니다';
+        } else {
+            this.statusBar.textContent = 'AI가 생각 중입니다...';
+        }
     }
 }
 

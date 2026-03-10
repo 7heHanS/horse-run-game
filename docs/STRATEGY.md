@@ -39,10 +39,11 @@
 | 구분 | 기술 | 비고 |
 | :--- | :--- | :--- |
 | **프레임워크** | Antigravity | 경량 웹 개발을 위한 선택 |
-| **언어** | Vanilla JavaScript (ES6+) | 의존성 최소화 및 실행 속도 확보 |
+| **AI 추론** | ONNX Runtime Web | 브라우저 내 딥러닝 가속 (WASM/WebGL) |
+| **AI 알고리즘** | MCTS, Minimax | 난이도별 최적화된 탐색 기법 |
 | **멀티스레딩** | Web Worker API | AI 연산 중 브라우저 프리징 방지 |
 | **번들러** | Vite | 로컬 개발 생산성 및 빌드 최적화 |
-| **컨테이너** | Docker (Nginx Alpine) | 20MB 미만의 초경량 배포 이미지 |
+| **배포** | GitHub Pages | 완전한 클라이언트 사이드 서비스 |
 
 ---
 

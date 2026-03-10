@@ -1,6 +1,25 @@
+# Python
 venv/
 __pycache__/
 *.pyc
-dataset.csv
-model.pt
+
+# Model weights (large binary files)
+*.pt
+*.onnx
+backup_models/
+
+# Datasets (generated, too large for git)
+*.csv
+dataset.json
+seed_states.json
+
+# Logs
 *.log
+game_logs.jsonl
+
+# Temporary / generated files
+*.bak
+*.log
+nohup.out
+outputs/
+temp/

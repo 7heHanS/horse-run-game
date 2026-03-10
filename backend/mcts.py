@@ -58,7 +58,7 @@ class MCTSNode:
         return len(self.children) > 0
 
 class MCTS:
-    def __init__(self, model, device, c_puct=1.5, num_simulations=100):
+    def __init__(self, model, device, c_puct=2.5, num_simulations=100):
         self.model = model
         self.device = device
         self.c_puct = c_puct
@@ -110,7 +110,7 @@ class MCTS:
         # Scaling factor to squash huge heuristic values (WIN=100000, MEADOW=500) into reasonable margins
         return math.tanh(raw_score / 2000.0)
 
-    def search(self, initial_board, player):
+    def search(self, initial_board, player, add_noise=False):
         root = MCTSNode(state=initial_board, player=player, prior_prob=1.0)
         
         # Expand root
@@ -120,11 +120,12 @@ class MCTS:
         if not root.is_expanded():
             return None
 
-        # Dirichlet noise on root to encourage exploration (AlphaGo technique)
-        dirichlet_alpha = 0.3
-        noise = np.random.dirichlet([dirichlet_alpha] * len(root.children))
-        for i, child in enumerate(root.children.values()):
-            child.prior_prob = 0.75 * child.prior_prob + 0.25 * noise[i]
+        if add_noise and len(root.children) > 0:
+            # Dirichlet noise on root to encourage exploration (AlphaGo technique)
+            dirichlet_alpha = 0.3
+            noise = np.random.dirichlet([dirichlet_alpha] * len(root.children))
+            for i, child in enumerate(root.children.values()):
+                child.prior_prob = 0.75 * child.prior_prob + 0.25 * noise[i]
 
         for sim in range(self.num_simulations):
             node = root

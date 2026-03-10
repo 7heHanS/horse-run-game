@@ -1,9 +1,29 @@
-node_modules
-dist
+# Dependencies
+node_modules/
+dist/
+
+# Environment
 .env
 .DS_Store
+
+# Build artifacts
 *.tar
+vite_error.log
 
 # Configuration & Sensitive Files
 horse-run-game.conf
-backend/dataset.json
+
+# ONNX Runtime & Assets
+public/ort.*
+# public/*.onnx (Removed to ensure deployment)
+
+# Legacy / Temp
+src/ai_local.js
+src/ai-worker.js
+src/minimax.js
+debug_browser.js
+test_*.js
+
+# IDE
+.vscode/
+.idea/

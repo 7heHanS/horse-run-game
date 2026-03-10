@@ -12,28 +12,44 @@
   <div id="app">
     <header>
       <h1>말 달리자</h1>
-      <div class="status-bar" id="status-bar">플레이어 1의 턴입니다</div>
+      <div class="status-bar" id="status-bar">당신의 턴입니다</div>
     </header>
     <main>
       <div id="game-board" class="board"></div>
     </main>
     <aside class="controls">
-            <div class="control-group">
-                <label for="difficulty">AI 난이도:</label>
-                <select id="difficulty">
-                    <option value="1">하 (탐색 깊이 1)</option>
-                    <option value="2">중 (탐색 깊이 2)</option>
-                    <option value="3" selected>상 (탐색 깊이 3)</option>
-                    <option value="4">최상 (탐색 깊이 4)</option>
-                </select>
-            </div>
-            <div class="control-group">
-                <label for="use-ml">
-                    <input type="checkbox" id="use-ml" />
-                    딥러닝 AI 사용 (PyTorch)
-                </label>
-            </div>
-            <button id="reset-btn">게임 재시작</button>
+      <div class="controls-row">
+        <!-- Game Mode -->
+        <div class="control-block">
+          <span class="control-label">모드</span>
+          <div class="segment-group" id="game-mode-group" data-value="1p">
+            <button class="seg-btn active" data-val="1p">👤 1인용</button>
+            <button class="seg-btn" data-val="2p">👥 2인용</button>
+          </div>
+        </div>
+
+        <!-- Turn Order -->
+        <div class="control-block" id="turn-order-group">
+          <span class="control-label">순서</span>
+          <div class="segment-group" id="turn-order-seg" data-value="first">
+            <button class="seg-btn active" data-val="first">🔴 선공</button>
+            <button class="seg-btn" data-val="second">🟣 후공</button>
+          </div>
+        </div>
+
+        <!-- AI Difficulty -->
+        <div class="control-block" id="difficulty-group">
+          <span class="control-label">난이도</span>
+          <div class="segment-group" id="difficulty-seg" data-value="3">
+            <button class="seg-btn" data-val="2">😊 초보</button>
+            <button class="seg-btn active" data-val="3">⚔️ 일반</button>
+            <button class="seg-btn" data-val="4">🔥 고수</button>
+            <button class="seg-btn" data-val="5">🧠 마스터</button>
+            <button class="seg-btn" data-val="6">👑 그랜드마스터</button>
+          </div>
+        </div>
+      </div>
+      <button id="reset-btn">🔄 게임 재시작</button>
     </aside>
 
     <div id="replay-controls" class="hidden">
