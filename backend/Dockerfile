@@ -2,8 +2,8 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install dependencies
-RUN pip install fastapi uvicorn torch torchvision torchaudio pandas numpy --no-cache-dir
+# Install dependencies (Minimal for log collection)
+RUN pip install fastapi uvicorn pydantic --no-cache-dir
 
 # Copy the backend source
 COPY . /app
