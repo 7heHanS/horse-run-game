@@ -1,12 +1,11 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from ai import find_best_move
 import json
 import os
 from datetime import datetime
 
-app = FastAPI(title="Horse Run Game API")
+app = FastAPI(title="Horse Run Game Log Server")
 
 # Configure CORS for GitHub Pages frontend
 app.add_middleware(
@@ -16,18 +15,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-class MoveRequest(BaseModel):
-    board: list[list[int]]
-    current_turn: int
-    difficulty: int = 3
-    use_ml: bool = False
-
-class MoveResponse(BaseModel):
-    from_r: int
-    from_c: int
-    to_r: int
-    to_c: int
 
 class MoveEntry(BaseModel):
     player: int
