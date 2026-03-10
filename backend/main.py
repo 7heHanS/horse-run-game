@@ -16,15 +16,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class MoveEntry(BaseModel):
-    player: int
-    from_pos: dict  # {"x": int, "y": int}  — aliased from "from" in frontend
-    to: dict        # {"x": int, "y": int}
-
-    class Config:
-        # Allow 'from' field name from frontend JSON
-        populate_by_name = True
-
 class GameLogRequest(BaseModel):
     winner: int
     total_moves: int
@@ -35,39 +26,7 @@ GAME_LOG_FILE = "game_logs.jsonl"
 
 @app.get("/")
 def read_root():
-    return {"status": "ok", "message": "Horse Run Game AI Server is running"}
-
-@app.post("/api/move", response_model=MoveResponse)
-def get_next_move(request: MoveRequest):
-    # Determine players (assume AI is current_turn)
-    ai_player = request.current_turn
-    human_player = 1 if ai_player == 2 else 2
-    
-    # Calculate best move with depth = difficulty + 1 (arbitrary scaling)
-    depth = request.difficulty
-    
-    use_mcts = request.difficulty >= 6
-    mcts_sims = 5000 if request.difficulty == 6 else 0
-
-    best_move = find_best_move(
-        request.board, 
-        ai_player, 
-        human_player, 
-        depth, 
-        use_ml=request.use_ml,
-        use_mcts=use_mcts,
-        mcts_simulations=mcts_sims
-    )
-    
-    if best_move is None:
-        raise HTTPException(status_code=400, detail="No possible moves found")
-        
-    return {
-        "from_r": best_move["pieceY"],
-        "from_c": best_move["pieceX"],
-        "to_r": best_move["targetY"],
-        "to_c": best_move["targetX"]
-    }
+    return {"status": "ok", "message": "Horse Run Game Log Server is running"}
 
 @app.post("/api/game-log")
 def receive_game_log(request: GameLogRequest):
@@ -85,4 +44,3 @@ def receive_game_log(request: GameLogRequest):
     
     print(f"[GAME LOG] Winner: P{request.winner}, Moves: {request.total_moves}, Time: {request.timestamp}")
     return {"status": "ok", "message": "Game log recorded"}
-
