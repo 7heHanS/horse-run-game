@@ -4,31 +4,56 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>말 달리자 (Horse Run)</title>
-  <script type="module" crossorigin src="/assets/index-Cl9Ya0mr.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-D_FLlkCd.css">
+  <title>말 달리자 (Horse Run)</title>
+  <script type="module" crossorigin src="/horse-run-game/assets/index-DTDZk-hr.js"></script>
+  <link rel="stylesheet" crossorigin href="/horse-run-game/assets/index-8qPJhBK3.css">
 </head>
 
 <body>
   <div id="app">
     <header>
       <h1>말 달리자</h1>
-      <div class="status-bar" id="status-bar">플레이어 1의 턴입니다</div>
+      <div class="status-bar" id="status-bar">당신의 턴입니다</div>
     </header>
     <main>
       <div id="game-board" class="board"></div>
     </main>
     <aside class="controls">
-      <div class="difficulty-selector">
-        <label for="difficulty">AI 난이도:</label>
-        <select id="difficulty">
-          <option value="2">초보 (2수 예측)</option>
-          <option value="3" selected>일반 (3수 예측)</option>
-          <option value="4">고수 (4수 예측)</option>
-          <option value="5">마스터 (5수 예측)</option>
-        </select>
+      <div class="controls-row">
+        <!-- Game Mode -->
+        <div class="control-block">
+          <span class="control-label">모드</span>
+          <div class="segment-group" id="game-mode-group" data-value="1p">
+            <button class="seg-btn active" data-val="1p">👤 1인용</button>
+            <button class="seg-btn" data-val="2p">👥 2인용</button>
+          </div>
+        </div>
+
+        <!-- Turn Order -->
+        <div class="control-block" id="turn-order-group">
+          <span class="control-label">순서</span>
+          <div class="segment-group" id="turn-order-seg" data-value="first">
+            <button class="seg-btn active" data-val="first">🔴 선공</button>
+            <button class="seg-btn" data-val="second">🟣 후공</button>
+          </div>
+        </div>
+
+        <!-- AI Mode -->
+        <div class="control-block" id="ai-mode-group">
+          <span class="control-label">AI 알고리즘</span>
+          <div class="segment-group" id="ai-mode-seg" data-value="minimax">
+            <button class="seg-btn active" data-val="minimax">⚙️ 일반</button>
+            <button class="seg-btn" data-val="mcts">🧠 딥러닝</button>
+          </div>
+        </div>
+
+        <!-- AI Power (Slider) -->
+        <div class="control-block" id="ai-power-group">
+          <span class="control-label">AI 성능 조절 : <span id="ai-power-value">3</span></span>
+          <input type="range" id="ai-power-slider" class="range-slider" min="2" max="5" value="3" step="1">
+        </div>
       </div>
-      <button id="reset-btn">게임 재시작</button>
+      <button id="reset-btn">🔄 게임 재시작</button>
     </aside>
 
     <div id="replay-controls" class="hidden">
@@ -37,7 +62,7 @@
       <button id="next-btn">다음 수 ▶</button>
       <button id="exit-replay-btn">복기 종료</button>
     </div>
-  </div>
+  </div>
 </body>
 
 </html>

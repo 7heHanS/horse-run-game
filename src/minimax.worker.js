@@ -1,7 +1,7 @@
 /**
  * Web Worker for Minimax & MCTS (ONNX) AI computation.
  */
-import { env, InferenceSession, Tensor } from 'onnxruntime-web';
+import { env, InferenceSession, Tensor } from 'onnxruntime-web/all';
 import { MCTS } from './mcts.js';
 import { BOARD_SIZE, OASIS_POS } from './constants.js';
 import { getValidSlideMoves, getValidLShapeMoves, checkWinCondition } from './engine.js';
@@ -31,7 +31,6 @@ async function initONNX() {
     
     try {
         // Path relative to the public root where Vite copies wasm files
-        // In local dev, base is /horse-run-game/
         const baseUrl = import.meta.env.BASE_URL.endsWith('/') 
             ? import.meta.env.BASE_URL 
             : import.meta.env.BASE_URL + '/';
@@ -39,32 +38,38 @@ async function initONNX() {
         env.wasm.wasmPaths = baseUrl;
         const modelUrl = baseUrl + 'model_v6.onnx';
         
-        // Disable webgpu temporarily since it requires secure contexts/flags and is unreliabe in worker
-        // Focus on WebGL + WASM for hardware acceleration first
-        const providers = ['webgl', 'wasm'];
-        
-        onnxSession = await InferenceSession.create(modelUrl, {
-            executionProviders: providers,
-            graphOptimizationLevel: 'all'
-        });
-        console.log("ONNX Session created in worker with providers:", providers);
-        return onnxSession;
-    } catch (e) {
-        console.warn("Failed to load ONNX model with webgl/wasm providers:", e.message, e.stack, e);
-        
-        // Fallback to pure wasm if hardware acceleration fails
         try {
-            console.log("Falling back to wasm provider for ONNX...");
-            const modelUrl = (import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL : import.meta.env.BASE_URL + '/') + 'model_v6.onnx';
+            // 1st Attempt: WebGPU (fastest, requires modern browser & compatible tensor shapes)
             onnxSession = await InferenceSession.create(modelUrl, {
-                executionProviders: ['wasm'],
-                graphOptimizationLevel: 'all'
+                executionProviders: ['webgpu']
             });
+            
+            // Warm-up inference with dummy tensor to catch shape-mismatch crashes immediately
+            const dummyData = new Float32Array(1 * 3 * 11 * 11); 
+            const dummyTensor = new Tensor('float32', dummyData, [1, 3, 11, 11]);
+            await onnxSession.run({ 'input': dummyTensor }); 
+            
+            console.log("🚀 WebGPU warmup passed! Running at max speed.");
             return onnxSession;
-        } catch (e2) {
-            console.error("Fallback to wasm also failed:", e2.message, e2.stack, e2);
-            return null;
+            
+        } catch (e1) {
+            console.warn("⚠️ WebGPU session failed or tensor shape mismatch. Falling back to WebGL.", e1.message);
+            
+            try {
+                // 2nd Attempt: WebGL + WASM (Stable fallback for iOS Safari and dynamic tensor shape glitches)
+                onnxSession = await InferenceSession.create(modelUrl, {
+                    executionProviders: ['webgl', 'wasm']
+                });
+                console.log("✅ WebGL/WASM fallback session created in worker.");
+                return onnxSession;
+            } catch (e2) {
+                console.error("Fallback to WebGL/WASM also failed:", e2.message, e2.stack, e2);
+                return null;
+            }
         }
+    } catch (globalErr) {
+        console.error("Critical failure during ONNX init:", globalErr);
+        return null;
     }
 }
 
