@@ -1,7 +1,7 @@
 /**
  * Web Worker for Minimax & MCTS (ONNX) AI computation.
  */
-import * as ort from 'onnxruntime-web';
+import { env, InferenceSession, Tensor } from 'onnxruntime-web';
 import { MCTS } from './mcts.js';
 import { BOARD_SIZE, OASIS_POS } from './constants.js';
 import { getValidSlideMoves, getValidLShapeMoves, checkWinCondition } from './engine.js';
@@ -28,19 +28,43 @@ let onnxSession = null;
 
 async function initONNX() {
     if (onnxSession) return onnxSession;
+    
     try {
         // Path relative to the public root where Vite copies wasm files
         // In local dev, base is /horse-run-game/
-        const modelUrl = './model_v6.onnx';
-        onnxSession = await ort.InferenceSession.create(modelUrl, {
-            executionProviders: ['wasm'], // Use WebAssembly for worker reliability
+        const baseUrl = import.meta.env.BASE_URL.endsWith('/') 
+            ? import.meta.env.BASE_URL 
+            : import.meta.env.BASE_URL + '/';
+            
+        env.wasm.wasmPaths = baseUrl;
+        const modelUrl = baseUrl + 'model_v6.onnx';
+        
+        // Disable webgpu temporarily since it requires secure contexts/flags and is unreliabe in worker
+        // Focus on WebGL + WASM for hardware acceleration first
+        const providers = ['webgl', 'wasm'];
+        
+        onnxSession = await InferenceSession.create(modelUrl, {
+            executionProviders: providers,
             graphOptimizationLevel: 'all'
         });
-        console.log("ONNX Session created in worker");
+        console.log("ONNX Session created in worker with providers:", providers);
         return onnxSession;
     } catch (e) {
-        console.error("Failed to load ONNX model in worker:", e);
-        return null;
+        console.warn("Failed to load ONNX model with webgl/wasm providers:", e.message, e.stack, e);
+        
+        // Fallback to pure wasm if hardware acceleration fails
+        try {
+            console.log("Falling back to wasm provider for ONNX...");
+            const modelUrl = (import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL : import.meta.env.BASE_URL + '/') + 'model_v6.onnx';
+            onnxSession = await InferenceSession.create(modelUrl, {
+                executionProviders: ['wasm'],
+                graphOptimizationLevel: 'all'
+            });
+            return onnxSession;
+        } catch (e2) {
+            console.error("Fallback to wasm also failed:", e2.message, e2.stack, e2);
+            return null;
+        }
     }
 }
 
@@ -130,14 +154,14 @@ function findBestMoveMinimax(board, aiPlayer, humanPlayer, depth) {
 
 // === Worker message handler ===
 self.onmessage = async function(e) {
-    const { board, aiPlayer, humanPlayer, depth, useMCTS } = e.data;
+    const { board, aiPlayer, humanPlayer, powerValue, useMCTS } = e.data;
 
     if (useMCTS) {
         const session = await initONNX();
         if (session) {
             // MCTS logic
-            const sims = depth >= 6 ? 2000 : 800; // Scalable simulations
-            const mcts = new MCTS(session, ort, 2.5, sims);
+            const numSims = powerValue || 400; // Use slider value (e.g. 100~2000)
+            const mcts = new MCTS(session, { Tensor }, 2.5, numSims);
             const bestMove = await mcts.search(board, aiPlayer);
             self.postMessage({ bestMove });
             return;
@@ -147,6 +171,7 @@ self.onmessage = async function(e) {
     }
 
     // Default to Minimax
+    const depth = powerValue || 3; // Use slider value (e.g. 2~5)
     const bestMove = findBestMoveMinimax(board, aiPlayer, humanPlayer, depth);
     self.postMessage({ bestMove });
 };

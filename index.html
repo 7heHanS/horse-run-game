@@ -37,16 +37,19 @@
           </div>
         </div>
 
-        <!-- AI Difficulty -->
-        <div class="control-block" id="difficulty-group">
-          <span class="control-label">난이도</span>
-          <div class="segment-group" id="difficulty-seg" data-value="3">
-            <button class="seg-btn" data-val="2">😊 초보</button>
-            <button class="seg-btn active" data-val="3">⚔️ 일반</button>
-            <button class="seg-btn" data-val="4">🔥 고수</button>
-            <button class="seg-btn" data-val="5">🧠 마스터</button>
-            <button class="seg-btn" data-val="6">👑 그랜드마스터</button>
+        <!-- AI Mode -->
+        <div class="control-block" id="ai-mode-group">
+          <span class="control-label">AI 알고리즘</span>
+          <div class="segment-group" id="ai-mode-seg" data-value="minimax">
+            <button class="seg-btn active" data-val="minimax">⚙️ 일반</button>
+            <button class="seg-btn" data-val="mcts">🧠 딥러닝</button>
           </div>
+        </div>
+
+        <!-- AI Power (Slider) -->
+        <div class="control-block" id="ai-power-group">
+          <span class="control-label">AI 성능 조절 : <span id="ai-power-value">3</span></span>
+          <input type="range" id="ai-power-slider" class="range-slider" min="2" max="5" value="3" step="1">
         </div>
       </div>
       <button id="reset-btn">🔄 게임 재시작</button>

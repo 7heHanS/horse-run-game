@@ -28,6 +28,9 @@ class HorseRunGame {
         // 기보 로깅 (개별 수 기록)
         this.gameLog = [];
 
+        // Persistent AI Worker
+        this.aiWorker = null;
+
         this.init();
     }
 
@@ -64,12 +67,69 @@ class HorseRunGame {
                     if (group.id === 'game-mode-group') {
                         const is2P = btn.dataset.val === '2p';
                         document.getElementById('turn-order-group').style.display = is2P ? 'none' : '';
-                        document.getElementById('difficulty-group').style.display = is2P ? 'none' : '';
+                        document.getElementById('ai-mode-group').style.display = is2P ? 'none' : '';
+                        document.getElementById('ai-power-group').style.display = is2P ? 'none' : '';
                         this.resetGame();
+                    }
+                    
+                    if (group.id === 'ai-mode-seg') {
+                        this.updateSliderRange();
                     }
                 });
             });
         });
+
+        const powerSlider = document.getElementById('ai-power-slider');
+        const powerValue = document.getElementById('ai-power-value');
+        if (powerSlider) {
+            powerSlider.addEventListener('input', (e) => {
+                powerValue.textContent = e.target.value;
+            });
+        }
+
+        this.initWorker();
+    }
+
+    updateSliderRange() {
+        const aiModeGroup = document.getElementById('ai-mode-seg');
+        const mode = aiModeGroup?.dataset.value || 'minimax';
+        const slider = document.getElementById('ai-power-slider');
+        const powerValue = document.getElementById('ai-power-value');
+        
+        if (!slider) return;
+
+        if (mode === 'minimax') {
+            slider.min = '2';
+            slider.max = '5';
+            slider.value = '3';
+            slider.step = '1';
+        } else { // mcts
+            slider.min = '100';
+            slider.max = '2000';
+            slider.value = '400';
+            slider.step = '100';
+        }
+        powerValue.textContent = slider.value;
+    }
+
+    initWorker() {
+        if (!this.aiWorker) {
+            this.aiWorker = new Worker(
+                new URL('./minimax.worker.js', import.meta.url),
+                { type: 'module' }
+            );
+            
+            this.aiWorker.onmessage = (e) => {
+                if (e.data.bestMove !== undefined && this.onAIMoveReceived) {
+                    this.onAIMoveReceived(e.data.bestMove);
+                    this.onAIMoveReceived = null; // Reset callback
+                }
+            };
+            
+            this.aiWorker.onerror = (err) => {
+                console.error("Persistent AI Worker error:", err);
+            };
+        }
     }
 
     createBoardUI() {
@@ -257,11 +317,11 @@ class HorseRunGame {
         this.validMoves = [];
         this.showReplayControls();
 
-        // 그랜드마스터(딥러닝) 대전에서 인간 승리 시 기보 서버 전송
+        // 딥러닝(MCTS) 대전에서 인간 승리 시 기보 서버 전송
         if (this.gameMode === '1p' && player === this.humanPlayer) {
-            const diffGroup = document.getElementById('difficulty-seg');
-            const diff = diffGroup?.dataset.value;
-            if (diff === '6') {
+            const aiModeGroup = document.getElementById('ai-mode-seg');
+            const aiMode = aiModeGroup?.dataset.value;
+            if (aiMode === 'mcts') {
                 this.uploadGameLog(player);
             }
         }
@@ -354,13 +414,15 @@ class HorseRunGame {
             this.isAITurn = true;
             this.statusBar.textContent = 'AI가 생각 중입니다...';
 
-            const difficultyGroup = document.getElementById('difficulty-seg');
-            const selectedDepth = parseInt(difficultyGroup?.dataset.value || '3', 10);
+            const aiModeGroup = document.getElementById('ai-mode-seg');
+            const aiMode = aiModeGroup?.dataset.value || 'minimax';
             
-            // value 6 = 그랜드 마스터 (딥러닝) → useML = true
-            const useML = (selectedDepth === 6);
+            const powerSlider = document.getElementById('ai-power-slider');
+            const powerValue = parseInt(powerSlider?.value || (aiMode === 'mcts' ? '400' : '3'), 10);
+            
+            const useML = (aiMode === 'mcts');
 
-            const move = await this.fetchAIMove(this.boardInfo, this.aiPlayer, selectedDepth, useML);
+            const move = await this.fetchAIMove(this.boardInfo, this.aiPlayer, powerValue, useML);
             
             this.handleAIResponse(move);
         } else {
@@ -368,7 +430,7 @@ class HorseRunGame {
         }
     }
 
-    async fetchAIMove(boardInfo, currentPlayer, depth, useML) {
+    async fetchAIMove(boardInfo, currentPlayer, powerValue, useML) {
         try {
             const simpleBoard = boardInfo.map(row => 
                 row.map(cell => cell ? cell.player : 0)
@@ -378,27 +440,19 @@ class HorseRunGame {
             this.updateStatus("AI가 생각 중입니다... ⏳");
             
             const bestMove = await new Promise((resolve, reject) => {
-                const worker = new Worker(
-                    new URL('./minimax.worker.js', import.meta.url),
-                    { type: 'module' }
-                );
-                worker.onmessage = (e) => {
-                    resolve(e.data.bestMove);
-                    worker.terminate();
-                };
-                worker.onerror = (err) => {
-                    console.error("Worker error:", err);
-                    reject(err);
-                    worker.terminate();
-                };
-                // Send useMCTS flag for Grandmaster (Level 6)
-                worker.postMessage({ 
-                    board: simpleBoard, 
-                    aiPlayer: currentPlayer, 
-                    humanPlayer, 
-                    depth,
-                    useMCTS: (depth >= 6)
-                });
+                this.onAIMoveReceived = resolve;
+                
+                if (this.aiWorker) {
+                    this.aiWorker.postMessage({ 
+                        board: simpleBoard, 
+                        aiPlayer: currentPlayer, 
+                        humanPlayer, 
+                        powerValue,
+                        useMCTS: useML
+                    });
+                } else {
+                    reject(new Error("AI Worker not initialized"));
+                }
             });
             
             return bestMove;
@@ -452,11 +506,14 @@ class HorseRunGame {
             this.isAITurn = true;
             this.statusBar.textContent = 'AI가 생각 중입니다...';
             
-            const difficultyGroup = document.getElementById('difficulty-seg');
-            const selectedDepth = parseInt(difficultyGroup?.dataset.value || '3', 10);
-            const useML = (selectedDepth === 6);
+            const aiModeGroup = document.getElementById('ai-mode-seg');
+            const aiMode = aiModeGroup?.dataset.value || 'minimax';
             
-            this.fetchAIMove(this.boardInfo, this.aiPlayer, selectedDepth, useML)
+            const powerSlider = document.getElementById('ai-power-slider');
+            const powerValue = parseInt(powerSlider?.value || (aiMode === 'mcts' ? '400' : '3'), 10);
+            const useML = (aiMode === 'mcts');
+            
+            this.fetchAIMove(this.boardInfo, this.aiPlayer, powerValue, useML)
                 .then(move => this.handleAIResponse(move));
         }
     }
