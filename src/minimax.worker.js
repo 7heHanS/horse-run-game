@@ -159,6 +159,14 @@ function findBestMoveMinimax(board, aiPlayer, humanPlayer, depth) {
 
 // === Worker message handler ===
 self.onmessage = async function(e) {
+    if (e.data.type === 'preload') {
+        // Eagerly initialized on page load
+        console.log("Worker received preload signal. Initializing ONNX session in background...");
+        await initONNX();
+        self.postMessage({ type: 'ready' });
+        return;
+    }
+
     const { board, aiPlayer, humanPlayer, powerValue, useMCTS } = e.data;
 
     if (useMCTS) {

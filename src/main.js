@@ -28,8 +28,9 @@ class HorseRunGame {
         // 기보 로깅 (개별 수 기록)
         this.gameLog = [];
 
-        // Persistent AI Worker
+        // Persistent AI Worker & Preload State
         this.aiWorker = null;
+        this.isAIReady = false;
 
         this.init();
     }
@@ -120,7 +121,17 @@ class HorseRunGame {
             );
             
             this.aiWorker.onmessage = (e) => {
-                if (e.data.bestMove !== undefined && this.onAIMoveReceived) {
+                if (e.data.type === 'ready') {
+                    console.log("AI Background Model is fully loaded and ready.");
+                    this.isAIReady = true;
+                    this.hideLoadingOverlay();
+                    
+                    // If AI was waiting to move on its turn, trigger it now.
+                    if (this.isAITurn && this.pendingAITask) {
+                        this.pendingAITask();
+                        this.pendingAITask = null;
+                    }
+                } else if (e.data.bestMove !== undefined && this.onAIMoveReceived) {
                     this.onAIMoveReceived(e.data.bestMove);
                     this.onAIMoveReceived = null; // Reset callback
                 }
@@ -129,7 +140,20 @@ class HorseRunGame {
             this.aiWorker.onerror = (err) => {
                 console.error("Persistent AI Worker error:", err);
             };
+
+            // Trigger eager background preload immediately
+            this.aiWorker.postMessage({ type: 'preload' });
         }
+    }
+
+    showLoadingOverlay() {
+        const overlay = document.getElementById('ai-loading-overlay');
+        if (overlay) overlay.classList.remove('hidden');
+    }
+
+    hideLoadingOverlay() {
+        const overlay = document.getElementById('ai-loading-overlay');
+        if (overlay) overlay.classList.add('hidden');
     }
 
     createBoardUI() {
@@ -223,6 +247,16 @@ class HorseRunGame {
 
     handleCellClick(x, y) {
         if (this.isGameOver || this.isAITurn) return;
+
+        // If user wants to move but AI is not ready, block UX
+        const aiModeGroup = document.getElementById('ai-mode-seg');
+        const aiMode = aiModeGroup?.dataset.value || 'minimax';
+        
+        // Only block play if DL mode is selected and models are downloading.
+        if (aiMode === 'mcts' && !this.isAIReady) {
+            this.showLoadingOverlay();
+            return;
+        }
 
         // 선택 가능한 이동 경로 클릭 시
         const move = this.validMoves.find(m => m.x === x && m.y === y);
@@ -422,9 +456,18 @@ class HorseRunGame {
             
             const useML = (aiMode === 'mcts');
 
-            const move = await this.fetchAIMove(this.boardInfo, this.aiPlayer, powerValue, useML);
-            
-            this.handleAIResponse(move);
+            if (useML && !this.isAIReady) {
+                // If the turn passes to DL AI, but it's not ready yet, show overlay and pend the task
+                this.showLoadingOverlay();
+                this.pendingAITask = async () => {
+                    const move = await this.fetchAIMove(this.boardInfo, this.aiPlayer, powerValue, useML);
+                    this.handleAIResponse(move);
+                };
+            } else {
+                // Direct call
+                const move = await this.fetchAIMove(this.boardInfo, this.aiPlayer, powerValue, useML);
+                this.handleAIResponse(move);
+            }
         } else {
             this.isAITurn = false;
         }
@@ -513,8 +556,16 @@ class HorseRunGame {
             const powerValue = parseInt(powerSlider?.value || (aiMode === 'mcts' ? '400' : '3'), 10);
             const useML = (aiMode === 'mcts');
             
-            this.fetchAIMove(this.boardInfo, this.aiPlayer, powerValue, useML)
-                .then(move => this.handleAIResponse(move));
+            if (useML && !this.isAIReady) {
+                this.showLoadingOverlay();
+                this.pendingAITask = async () => {
+                    const move = await this.fetchAIMove(this.boardInfo, this.aiPlayer, powerValue, useML);
+                    this.handleAIResponse(move);
+                };
+            } else {
+                this.fetchAIMove(this.boardInfo, this.aiPlayer, powerValue, useML)
+                    .then(move => this.handleAIResponse(move));
+            }
         }
     }
 

@@ -5,12 +5,21 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>말 달리자 (Horse Run)</title>
-  <script type="module" crossorigin src="/horse-run-game/assets/index-DTDZk-hr.js"></script>
-  <link rel="stylesheet" crossorigin href="/horse-run-game/assets/index-8qPJhBK3.css">
+  <script type="module" crossorigin src="/horse-run-game/assets/index-D-P6Jniu.js"></script>
+  <link rel="stylesheet" crossorigin href="/horse-run-game/assets/index-BDxzSaE6.css">
 </head>
 
 <body>
   <div id="app">
+    <!-- Eager Preload Loading Overlay -->
+    <div id="ai-loading-overlay" class="hidden">
+      <div class="spinner"></div>
+      <div class="loading-text">
+        <p>딥러닝 AI 엔진 초기화 중...</p>
+        <small>(최적의 플레이 환경 구성을 위해 데이터를 로드하고 있습니다)</small>
+      </div>
+    </div>
+
     <header>
       <h1>말 달리자</h1>
       <div class="status-bar" id="status-bar">당신의 턴입니다</div>
