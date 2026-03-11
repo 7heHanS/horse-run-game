@@ -40,7 +40,7 @@ V1 (MLP)  →  V2 (개선 MLP)  →  V3 (CNN)  →  V4 (Multi-Head CNN)  →  V5
 - **`is_critical` 가중치**: 50x (승자의 마지막 10수에 집중)
 - **결과**: 순수 추론(MCTS 없이)으로 Minimax Depth 4 격파
 
-## V6: Targeted Reinforcement (진행 중)
+## V6: Targeted Reinforcement (현 프로덕션 모델)
 
 ### 취약점
 사이드 열 공격(좌/우 열을 타고 중앙으로 슬라이드 진입)에 체계적 무너짐
@@ -70,12 +70,13 @@ V1 (MLP)  →  V2 (개선 MLP)  →  V3 (CNN)  →  V4 (Multi-Head CNN)  →  V5
 
 ## V8: ONNX Web Migration (Client-side AI)
 
-- **배경**: 서버 연산 부하 및 지연 시간 해결을 위해 딥러닝 엔진 브라우저 이식
-- **변환**: PyTorch `.pt` → ONNX `.onnx` (Opset 12)
-- **구현**:
-  - `onnxruntime-web` 기반의 비동기 추론 엔진 구축
-  - 파이썬 MCTS 로직의 자바스크립트 완전 이식
-  - Web Worker 내에서 ONNX-MCTS(2,000회) 병렬 실행
+- **배경**: 서버 연산 부하 및 네트워크 지연 시간(Latency) 이슈를 원천 차단하기 위해 딥러닝 엔진 브라우저 이식 수행
+- **변환**: PyTorch `.pt` → **ONNX** `.onnx` (Opset 12)
+- **성공적 구현 결과**:
+  - `onnxruntime-web` (v1.24.3) 기반의 WebGL / WASM 하드웨어 가속 추론 엔진 구축
+  - 파이썬 의존성 탈피: MCTS 로직 및 상태 평가 함수(Heuristics)를 순수 JavaScript로 100% 완전 포팅
+  - **Zero-UI-Freezing**: `minimax.worker.js` (Web Worker) 내부에서 ONNX 모델 로드 및 MCTS(최대 2,000회)를 백그라운드 병렬 실행하여 브라우저 메인 스레드 부하 제로 달성
+  - 외부 모델 가중치 파일 단일화(`.onnx.data` 병합)를 통해 브라우저 파일 시스템 한계 극복
 
 ---
 

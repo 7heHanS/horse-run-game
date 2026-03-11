@@ -96,3 +96,8 @@
 - **WASM 가속**: `onnxruntime-web`을 통한 고성능 로컬 추론
 - **MCTS/Heuristic JS 포팅**: 파이썬 엔진을 자바스크립트로 완전 재구현
 - 최종 결과: 모든 난이도가 사용자 기기에서 독립적으로 구동되는 **Full Client-side AI** 완성 (Grandmaster: MCTS 2,000회)
+
+## Phase 19: 성능 슬라이더 UI 및 하드웨어 가속 최적화
+- **동적 난이도 조절 (Sliders)**: 기존 5단계의 고정 난이도 버튼을 폐지하고, 기기 성능에 맞춰 연산량을 자유자재로 설정할 수 있는 슬라이더 UI (100~2000 Iterations / Depth 2~5) 도입
+- **Hardware Acceleration (ONNX-Web)**: Web Worker 내부 환경 제약을 극복하고 `['webgpu', 'webgl', 'wasm']` 순서의 Fallback 로직을 적용하여 브라우저 GPU 가속 극대화
+- **External Data Merging**: 브라우저 런타임 에러 방지를 위해 ONNX 가중치 파일(`.onnx`)과 외부 데이터(`.onnx.data`)를 하나로 통합 배포하도록 렌더링 파이프라인 정리

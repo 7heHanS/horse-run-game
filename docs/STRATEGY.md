@@ -6,25 +6,25 @@
 
 ## 1. 시스템 아키텍처 (Architecture)
 
-### 1.1 서버리스 지향 구조 (Serverless-like)
-* **Zero-Load Backend**: 오라클 AMD 서버의 CPU/RAM 부하를 0에 수렴시키기 위해, 모든 게임 로직과 AI 연산을 클라이언트(브라우저)로 위임합니다.
-* **Nginx Serving**: 서버는 정적 파일(HTML, JS, CSS)을 전송하는 역할만 수행하며, Docker 컨테이너 하나로 운용됩니다.
+### 1.1 서버리스 완전 클라이언트 구조 (Serverless Full-Client)
+* **Zero-Backend**: 클라우드 서버의 API 호출이나 지연 시간(Latency)을 없애기 위해, 무거운 딥러닝 추론까지 포함한 **모든 게임 및 AI 연산을 브라우저 내부(Web Worker)** 로 완전히 이관하였습니다.
+* **로컬 보안**: 서버와 통신하지 않으므로 사용자의 리소스와 화면 렌더링을 온전히 사용자 기기 성능(CPU/GPU)에 맡깁니다.
 
 ### 1.2 모듈러 디자인 (Modular Design)
-* **View (Antigravity)**: UI 렌더링 및 사용자 입력(클릭, 드래그) 처리.
-* **Engine (Core Logic)**: 이동 규칙 검증(Slide, L-shape) 및 승패 판정.
-* **AI Worker (Background Process)**: 메인 스레드 방해 없이 최적의 수를 계산하는 독립 프로세스.
+* **View (Main Thread)**: UI 렌더링, 이벤트 리스닝, 3D CSS 및 애니메이션 (Antigravity/Vanilla JS).
+* **AI Worker (Background Process)**: 메인 스레드 프리징을 막기 위해 Web Worker에서 ONNX Runtime 모델 및 Minimax 엔진 동작.
 
 ---
 
 ## 2. AI 알고리즘 전략 (AI Strategy)
 
 ### 2.1 미니맥스 + 알파-베타 가지치기 (Minimax with Alpha-Beta Pruning)
-* **알고리즘**: 완전 정보 게임에 최적화된 트리 탐색 알고리즘을 사용합니다.
-* **탐색 깊이(Depth)**: 
-    * 초급: 2수 앞 (즉각적인 이득만 계산)
-    * 중급: 4수 앞 (상대의 방해를 예측)
-    * 고급: 6수 이상 (승리를 위한 빌드업 및 장기적 배치 계산)
+* **알고리즘**: 완전 정보 게임에 최적화된 트리 탐색 알고리즘입니다.
+* **탐색 깊이(Depth) 동적 조절**: 게임 내 성능 슬라이더를 통해 **2수 ~ 5수 앞**까지 기기 성능에 맞춰 조절 가능합니다.
+
+### 2.2 딥러닝 가속 MCTS (Monte Carlo Tree Search + ONNX)
+* **MCTS 시뮬레이션**: PyTorch로 학습시킨 CNN/ResNet 모델(V6)을 ONNX 형태로 포팅하여 JS Web Worker에서 시뮬레이션 확률 밀도를 계산합니다.
+* **반복 횟수(Iterations) 동적 조절**: 브라우저 하드웨어 가속(WebGL, WebGPU, WASM)을 활용하여 **100회 ~ 2000회** 폭넓은 연산을 조절합니다.
 
 ### 2.2 가중치 기반 상태 평가 함수 (Heuristic Evaluation)
 단순 거리가 아닌, 게임의 승리 공식을 수학적으로 모델링합니다.

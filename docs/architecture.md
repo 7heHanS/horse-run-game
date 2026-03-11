@@ -53,21 +53,17 @@
 
 ## AI 난이도 시스템
 
-| 난이도 | 방식 | 실행 위치 |
-|--------|------|----------|
-| 😊 초보 (Depth 2) | Minimax + Alpha-Beta | 브라우저 (Web Worker) |
-| ⚔️ 일반 (Depth 3) | Minimax + Alpha-Beta | 브라우저 (Web Worker) |
-| 🔥 고수 (Depth 4) | Minimax + Alpha-Beta | 브라우저 (Web Worker) |
-| 🧠 마스터 (Depth 5) | Minimax + Alpha-Beta | 브라우저 (Web Worker) |
-| 👑 그랜드마스터 | **MCTS (2,000회) + ONNX V6** | 브라우저 (Web Worker) |
+| 난이도 유형 | 세부 조절 (Slider) | 실행 위치 | 연산 구조 |
+|--------|------|----------|----------|
+| ⚙️ **미니맥스** (강제 연산) | **Depth 2 ~ 5** 조절 | 브라우저 (Web Worker) | Minimax + V7 Heuristics |
+| 🧠 **딥러닝** (MCTS+ONNX) | **100 ~ 2,000회** 시뮬레이션 | 브라우저 (Web Worker) | MCTS + V6 CNN Policy Net |
 
 ## 배포 흐름
 
 ```
 [로컬 개발] ──npm run dev──→ localhost:3000
       │
-      ├── git push (코드만) ──→ GitHub Pages (프론트엔드)
+      ├── git push (코드 + 모델) ──→ GitHub Pages (프론트엔드 + AI 추론)
       │
-      └── scp model_v6.pt ──→ Oracle Cloud (모델 파일)
-                                  └── git pull → uvicorn 재시작
+      └── (선택적) 백엔드 로그 서버 ──→ Oracle Cloud (기보 데이터 수집용 FastAPI)
 ```
