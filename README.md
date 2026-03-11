@@ -56,6 +56,18 @@ npm install
 npm run dev
 ```
 
+### 🏁 딥러닝 그랜드마스터 모드 최적화 (하드웨어 가속)
+본 게임의 MCTS 딥러닝 모드는 브라우저의 GPU 가속(WebGPU, WebGL)을 활용하면 연산 속도가 비약적으로 상승합니다.
+최신 스마트폰(갤럭시 Z Fold 6 등)이나 윈도우/Mac PC에서는 기본적으로 가속이 켜져 있으나, **우분투(Linux) Chrome**의 경우 다음 설정을 통해 성능 제한을 해제하는 것을 강력히 권장합니다.
+
+1. 크롬 주소창에 `chrome://flags`를 입력하여 실험실 설정에 진입합니다.
+2. 다음 세 가지 항목을 모두 찾아 **Enabled**로 변경하고 브라우저를 재시작(Relaunch)합니다.
+   * **Override software rendering list** (`#ignore-gpu-blocklist`): 리눅스 환경의 GPU 블랙리스트를 무시하고 강제 가속
+   * **Vulkan** (`#enable-vulkan`): 리눅스 환경 WebGPU 필수 모듈
+   * **Unsafe WebGPU Support** (`#enable-unsafe-webgpu`): WebGPU 통신 강제 활성화 
+
+---
+
 ### 딥러닝 AI 모델 로컬 학습 및 로깅 서버 (선택사항)
 이제 가장 높은 성능을 요구하는 딥러닝 AI 마저도 로컬 브라우저에서(ONNX Runtime Web을 통해) 100% 구동되므로 일반적인 플레이 시 백엔드 서버가 필요하지 않습니다.
 다만, 새로운 기보 데이터를 수집하거나 PyTorch 모델 학습 파이프라인을 돌려보고자 할 경우에만 아래와 같이 구동합니다.
