@@ -3,4 +3,6 @@ services:
     build: ./backend
     ports:
       - "8001:8001"
+    volumes:
+      - ./backend/game_logs.jsonl:/app/game_logs.jsonl
     restart: always

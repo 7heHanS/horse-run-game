@@ -356,7 +356,11 @@ class HorseRunGame {
             const aiModeGroup = document.getElementById('ai-mode-seg');
             const aiMode = aiModeGroup?.dataset.value;
             if (aiMode === 'mcts') {
-                this.uploadGameLog(player);
+                const powerSlider = document.getElementById('ai-power-slider');
+                const powerValue = parseInt(powerSlider?.value || '0', 10);
+                if (powerValue >= 400) {
+                    this.uploadGameLog(player);
+                }
             }
         }
     }
