@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import json
@@ -27,6 +27,14 @@ GAME_LOG_FILE = "game_logs.jsonl"
 @app.get("/")
 def read_root():
     return {"status": "ok", "message": "Horse Run Game Log Server is running"}
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return Response(content="", media_type="image/x-icon")
+
+@app.get("/robots.txt", include_in_schema=False)
+def robots():
+    return Response(content="User-agent: *\nDisallow: /", media_type="text/plain")
 
 @app.post("/api/game-log")
 def receive_game_log(request: GameLogRequest):
